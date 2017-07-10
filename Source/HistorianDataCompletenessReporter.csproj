@@ -7,8 +7,8 @@
     <ProjectGuid>{489620F7-255B-45CF-B914-AF2DDA917262}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>HistorianDataWalker</RootNamespace>
-    <AssemblyName>HistorianDataWalker</AssemblyName>
+    <RootNamespace>HistorianDataCompletenessReporter</RootNamespace>
+    <AssemblyName>HistorianDataCompletenessReporter</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
