@@ -1,6 +1,6 @@
-﻿namespace HistorianDataWalker
+﻿namespace HistorianDataCompletenessReporter
 {
-    partial class HistorianDataWalker
+    partial class HistorianDataCompletenessReporter
     {
         /// <summary>
         /// Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(HistorianDataWalker));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(HistorianDataCompletenessReporter));
             this.groupBoxSourceHistorian = new System.Windows.Forms.GroupBox();
             this.labelSourceHistorianInstanceName = new System.Windows.Forms.Label();
             this.textBoxHistorianInstanceName = new System.Windows.Forms.TextBox();
@@ -43,8 +43,8 @@
             this.textBoxMessageOutput = new System.Windows.Forms.TextBox();
             this.buttonGo = new System.Windows.Forms.Button();
             this.groupBoxOptions = new System.Windows.Forms.GroupBox();
+            this.maskedTextBoxSampleCountWindow = new System.Windows.Forms.MaskedTextBox();
             this.checkBoxUseUTCTime = new System.Windows.Forms.CheckBox();
-            this.textBox1 = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.buttonBrowse = new System.Windows.Forms.Button();
             this.textBoxDestination = new System.Windows.Forms.TextBox();
@@ -234,8 +234,8 @@
             // 
             this.groupBoxOptions.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.groupBoxOptions.Controls.Add(this.maskedTextBoxSampleCountWindow);
             this.groupBoxOptions.Controls.Add(this.checkBoxUseUTCTime);
-            this.groupBoxOptions.Controls.Add(this.textBox1);
             this.groupBoxOptions.Controls.Add(this.label1);
             this.groupBoxOptions.Controls.Add(this.buttonBrowse);
             this.groupBoxOptions.Controls.Add(this.textBoxDestination);
@@ -264,42 +264,45 @@
             this.groupBoxOptions.TabStop = false;
             this.groupBoxOptions.Text = "&Options";
             // 
+            // maskedTextBoxSampleCountWindow
+            // 
+            this.maskedTextBoxSampleCountWindow.Location = new System.Drawing.Point(168, 170);
+            this.maskedTextBoxSampleCountWindow.Mask = "00000";
+            this.maskedTextBoxSampleCountWindow.Name = "maskedTextBoxSampleCountWindow";
+            this.maskedTextBoxSampleCountWindow.Size = new System.Drawing.Size(100, 20);
+            this.maskedTextBoxSampleCountWindow.TabIndex = 21;
+            this.maskedTextBoxSampleCountWindow.Text = "60";
+            this.maskedTextBoxSampleCountWindow.TextChanged += new System.EventHandler(this.FormElementChanged);
+            // 
             // checkBoxUseUTCTime
             // 
             this.checkBoxUseUTCTime.AutoSize = true;
-            this.checkBoxUseUTCTime.Checked = true;
-            this.checkBoxUseUTCTime.CheckState = System.Windows.Forms.CheckState.Checked;
             this.checkBoxUseUTCTime.Location = new System.Drawing.Point(222, 49);
             this.checkBoxUseUTCTime.Name = "checkBoxUseUTCTime";
             this.checkBoxUseUTCTime.Size = new System.Drawing.Size(96, 17);
             this.checkBoxUseUTCTime.TabIndex = 20;
             this.checkBoxUseUTCTime.Text = "Use UTC Time";
             this.checkBoxUseUTCTime.UseVisualStyleBackColor = true;
-            // 
-            // textBox1
-            // 
-            this.textBox1.Location = new System.Drawing.Point(172, 169);
-            this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(100, 20);
-            this.textBox1.TabIndex = 19;
+            this.checkBoxUseUTCTime.CheckedChanged += new System.EventHandler(this.FormElementChanged);
             // 
             // label1
             // 
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(5, 172);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(161, 13);
+            this.label1.Size = new System.Drawing.Size(166, 13);
             this.label1.TabIndex = 18;
-            this.label1.Text = "Sample Count Window (Minutes)";
+            this.label1.Text = "Sample Count Window (Seconds)";
             // 
             // buttonBrowse
             // 
-            this.buttonBrowse.Location = new System.Drawing.Point(384, 191);
+            this.buttonBrowse.Location = new System.Drawing.Point(384, 193);
             this.buttonBrowse.Name = "buttonBrowse";
             this.buttonBrowse.Size = new System.Drawing.Size(52, 23);
             this.buttonBrowse.TabIndex = 17;
             this.buttonBrowse.Text = "Browse";
             this.buttonBrowse.UseVisualStyleBackColor = true;
+            this.buttonBrowse.Click += new System.EventHandler(this.buttonBrowse_Click);
             // 
             // textBoxDestination
             // 
@@ -307,7 +310,7 @@
             this.textBoxDestination.Name = "textBoxDestination";
             this.textBoxDestination.Size = new System.Drawing.Size(304, 20);
             this.textBoxDestination.TabIndex = 16;
-            this.textBoxDestination.Text = "Desktop";
+            this.textBoxDestination.TextChanged += new System.EventHandler(this.FormElementChanged);
             // 
             // labelDestination
             // 
@@ -366,7 +369,6 @@
             this.maskedTextBoxMessageInterval.Size = new System.Drawing.Size(53, 20);
             this.maskedTextBoxMessageInterval.TabIndex = 13;
             this.maskedTextBoxMessageInterval.Text = "2000";
-            this.maskedTextBoxMessageInterval.ValidatingType = typeof(int);
             this.maskedTextBoxMessageInterval.TextChanged += new System.EventHandler(this.FormElementChanged);
             // 
             // labelMessageInterval
@@ -495,7 +497,7 @@
             this.dateTimePickerSourceTime.Value = new System.DateTime(2017, 1, 1, 0, 0, 0, 0);
             this.dateTimePickerSourceTime.ValueChanged += new System.EventHandler(this.FormElementChanged);
             // 
-            // HistorianDataWalker
+            // HistorianDataCompletenessReporter
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -508,11 +510,11 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Margin = new System.Windows.Forms.Padding(2);
             this.MinimumSize = new System.Drawing.Size(675, 600);
-            this.Name = "HistorianDataWalker";
+            this.Name = "HistorianDataCompletenessReporter";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "openHistorian Data Walker Utility";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.HistorianDataWalker_FormClosing);
-            this.Load += new System.EventHandler(this.HistorianDataWalker_Load);
+            this.Text = "openHistorian Data Completeness Reporter Utility";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.HistorianDataCompletenessReporter_FormClosing);
+            this.Load += new System.EventHandler(this.HistorianDataCompletenessReporter_Load);
             this.groupBoxSourceHistorian.ResumeLayout(false);
             this.groupBoxSourceHistorian.PerformLayout();
             this.groupBoxMessages.ResumeLayout(false);
@@ -554,11 +556,11 @@
         public System.Windows.Forms.MaskedTextBox maskedTextBoxMessageInterval;
         public System.Windows.Forms.CheckBox checkBoxEnableLogging;
         public System.Windows.Forms.TextBox textBoxPointList;
-        private System.Windows.Forms.TextBox textBox1;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Button buttonBrowse;
-        private System.Windows.Forms.TextBox textBoxDestination;
         private System.Windows.Forms.Label labelDestination;
-        private System.Windows.Forms.CheckBox checkBoxUseUTCTime;
+        public System.Windows.Forms.TextBox textBoxDestination;
+        public System.Windows.Forms.CheckBox checkBoxUseUTCTime;
+        public System.Windows.Forms.MaskedTextBox maskedTextBoxSampleCountWindow;
     }
 }

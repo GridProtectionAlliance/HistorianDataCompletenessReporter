@@ -24,7 +24,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace HistorianDataWalker
+namespace HistorianDataCompletenessReporter
 {
     static class Program
     {
@@ -36,7 +36,7 @@ namespace HistorianDataWalker
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new HistorianDataWalker());
+            Application.Run(new HistorianDataCompletenessReporter());
         }
     }
 }

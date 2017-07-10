@@ -1,5 +1,5 @@
 ﻿//******************************************************************************************************
-//  HistorianDataWalker.cs - Gbtc
+//  HistorianDataCompletenessReporter.cs - Gbtc
 //
 //  Copyright © 2017, Grid Protection Alliance.  All Rights Reserved.
 //
@@ -19,6 +19,9 @@
 //  04/20/2017 - J. Ritchie Carroll
 //       Generated original version of source code.
 //
+//  07/10/2017 - Stephen Jenks
+//       Converted to HistorianDataCompletenessReporter
+//
 //******************************************************************************************************
 
 using System;
@@ -34,15 +37,15 @@ using GSF.IO;
 using GSF.TimeSeries;
 using GSF.TimeSeries.Adapters;
 using GSF.Windows.Forms;
-using HistorianDataWalker.HistorianAPI;
-using HistorianDataWalker.HistorianAPI.Metadata;
+using HistorianDataCompletenessReporter.HistorianAPI;
+using HistorianDataCompletenessReporter.HistorianAPI.Metadata;
 
-namespace HistorianDataWalker
+namespace HistorianDataCompletenessReporter
 {
     /// <summary>
     /// Defines the main form for the Historian Data Walker application.
     /// </summary>
-    public partial class HistorianDataWalker : Form
+    public partial class HistorianDataCompletenessReporter : Form
     {
         #region [ Members ]
 
@@ -56,14 +59,14 @@ namespace HistorianDataWalker
         #region [ Constructors ]
 
         /// <summary>
-        /// Creates a new <see cref="HistorianDataWalker"/>.
+        /// Creates a new <see cref="HistorianDataCompletenessReporter"/>.
         /// </summary>
-        public HistorianDataWalker()
+        public HistorianDataCompletenessReporter()
         {
             InitializeComponent();
 
             // Create a new log publisher instance
-            m_log = Logger.CreatePublisher(typeof(HistorianDataWalker), MessageClass.Application);
+            m_log = Logger.CreatePublisher(typeof(HistorianDataCompletenessReporter), MessageClass.Application);
         }
 
         #endregion
@@ -72,7 +75,7 @@ namespace HistorianDataWalker
 
         // Form Event Handlers
 
-        private void HistorianDataWalker_Load(object sender, EventArgs e)
+        private void HistorianDataCompletenessReporter_Load(object sender, EventArgs e)
         {
             try
             {
@@ -88,7 +91,7 @@ namespace HistorianDataWalker
             }
         }
 
-        private void HistorianDataWalker_FormClosing(object sender, FormClosingEventArgs e)
+        private void HistorianDataCompletenessReporter_FormClosing(object sender, FormClosingEventArgs e)
         {
             try
             {
@@ -115,6 +118,16 @@ namespace HistorianDataWalker
 
             // Kick off a thread to start archive read passing in current config file settings
             new Thread(ReadArchive) { IsBackground = true }.Start();
+        }
+
+        private void buttonBrowse_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog dialog = new FolderBrowserDialog();
+            DialogResult result = dialog.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                textBoxDestination.Text = dialog.SelectedPath;
+            }
         }
 
         // Form Element Accessors -- these functions allow access to form elements from non-UI threads
@@ -220,57 +233,56 @@ namespace HistorianDataWalker
         {
             try
             {
-                double timeRange = (m_settings.EndTime - m_settings.StartTime).TotalSeconds;
+                DateTime startTime = new DateTime(m_settings.StartTime.Ticks, m_settings.UseUTCTime ? DateTimeKind.Utc : DateTimeKind.Local);
+                DateTime endTime = new DateTime(m_settings.EndTime.Ticks, m_settings.UseUTCTime ? DateTimeKind.Utc : DateTimeKind.Local);
+
+                // Convert all times to UTC since that's what the openHistorian uses.
+                startTime = startTime.ToUniversalTime();
+                endTime = endTime.ToUniversalTime();
+
+                double timeRange = (endTime - startTime).TotalSeconds;
                 long receivedPoints = 0;
                 long processedDataBlocks = 0;
                 long duplicatePoints = 0;
                 Ticks operationTime;
                 Ticks operationStartTime;
                 DataPoint point = new DataPoint();
+                TimeSpan windowSize = TimeSpan.FromSeconds(m_settings.SampleCountWindow);
 
-                using (Algorithm algorithm = new Algorithm())
+                // Load historian meta-data
+                ShowUpdateMessage(">>> Loading source connection metadata...");
+
+                operationStartTime = DateTime.UtcNow.Ticks;
+                List<MetadataRecord> metadata = MetadataRecord.Query(m_settings.HostAddress, m_settings.MetadataPort, m_settings.MetadataTimeout);
+                operationTime = DateTime.UtcNow.Ticks - operationStartTime;
+
+                ShowUpdateMessage("*** Metadata Load Complete ***");
+                ShowUpdateMessage($"Total metadata load time {operationTime.ToElapsedTimeString(3)}...");
+
+                // Parse meta-data expression
+                ShowUpdateMessage(">>> Processing filter expression for metadata...");
+                operationStartTime = DateTime.UtcNow.Ticks;
+                MeasurementKey[] inputKeys = AdapterBase.ParseInputMeasurementKeys(MetadataRecord.Metadata, false, textBoxPointList.Text, "MeasurementDetail");
+                List<ulong> pointIDList = inputKeys.Select(key => (ulong)key.ID).ToList();
+                operationTime = DateTime.UtcNow.Ticks - operationStartTime;
+
+                ShowUpdateMessage($">>> Historian read will be for {pointIDList.Count:N0} points based on provided meta-data expression.");
+
+                ShowUpdateMessage("*** Filter Expression Processing Complete ***");
+                ShowUpdateMessage($"Total filter expression processing time {operationTime.ToElapsedTimeString(3)}...");
+
+                using (Algorithm algorithm = new Algorithm(startTime, endTime, windowSize, pointIDList.ToArray(), metadata, m_settings.Destination, m_settings.FrameRate, m_settings.UseUTCTime))
                 {
                     algorithm.ShowMessage = ShowUpdateMessage;
                     algorithm.MessageInterval = m_settings.MessageInterval;
-                    algorithm.StartTime = m_settings.StartTime;
-                    algorithm.EndTime = m_settings.EndTime;
-                    algorithm.TimeRange = timeRange;
                     algorithm.Log = m_log;
-
-                    // Load historian meta-data
-                    ShowUpdateMessage(">>> Loading source connection metadata...");
-
-                    operationStartTime = DateTime.UtcNow.Ticks;
-                    algorithm.Metadata = MetadataRecord.Query(m_settings.HostAddress, m_settings.MetadataPort, m_settings.MetadataTimeout);
-                    operationTime = DateTime.UtcNow.Ticks - operationStartTime;
-
-                    ShowUpdateMessage("*** Metadata Load Complete ***");
-                    ShowUpdateMessage($"Total metadata load time {operationTime.ToElapsedTimeString(3)}...");
-
-                    ShowUpdateMessage(">>> Processing filter expression for metadata...");
-
-                    operationStartTime = DateTime.UtcNow.Ticks;
-                    MeasurementKey[] inputKeys = AdapterBase.ParseInputMeasurementKeys(MetadataRecord.Metadata, false, textBoxPointList.Text, "MeasurementDetail");
-                    List<ulong> pointIDList = inputKeys.Select(key => (ulong)key.ID).ToList();
-                    operationTime = DateTime.UtcNow.Ticks - operationStartTime;
-
-                    // Allow algorithm to augment (or even replace) point ID list as provided by user
-                    algorithm.AugmentPointIDList(pointIDList);
-
-                    ShowUpdateMessage($">>> Historian read will be for {pointIDList.Count:N0} points based on provided meta-data expression.");
-
-                    ShowUpdateMessage("*** Filter Expression Processing Complete ***");
-                    ShowUpdateMessage($"Total filter expression processing time {operationTime.ToElapsedTimeString(3)}...");
-
-                    ShowUpdateMessage(">>> Initializing algorithm...");
-                    algorithm.Initialize();
 
                     ShowUpdateMessage(">>> Starting archive read...");
 
                     // Start historian data read
                     operationStartTime = DateTime.UtcNow.Ticks;
 
-                    using (SnapDBClient historianClient = new SnapDBClient(m_settings.HostAddress, m_settings.DataPort, m_settings.InstanceName, m_settings.StartTime, m_settings.EndTime, m_settings.FrameRate, pointIDList))
+                    using (SnapDBClient historianClient = new SnapDBClient(m_settings.HostAddress, m_settings.DataPort, m_settings.InstanceName, startTime, endTime, m_settings.FrameRate, pointIDList))
                     {
                         // Scan to first record
                         if (!historianClient.ReadNext(point))
@@ -327,7 +339,7 @@ namespace HistorianDataWalker
                             if (++processedDataBlocks % m_settings.MessageInterval == 0)
                             {
                                 ShowUpdateMessage($"{Environment.NewLine}{receivedPoints:N0} points{(duplicatePoints > 0 ? $", which included {duplicatePoints:N0} duplicates," : "")} read so far averaging {receivedPoints / (DateTime.UtcNow.Ticks - operationStartTime).ToSeconds():N0} points per second.");
-                                UpdateProgressBar((int)((1.0D - new Ticks(m_settings.EndTime.Ticks - (long)point.Timestamp).ToSeconds() / timeRange) * 100.0D));
+                                UpdateProgressBar((int)((1.0D - new Ticks(endTime.Ticks - (long)point.Timestamp).ToSeconds() / timeRange) * 100.0D));
                             }
 
                             try
@@ -341,6 +353,8 @@ namespace HistorianDataWalker
                                 m_log.Publish(MessageLevel.Error, "AlgorithmError", "Failed while processing data from the historian", exception: ex);
                             }
                         }
+
+                        algorithm.FinalWrite();
 
                         operationTime = DateTime.UtcNow.Ticks - operationStartTime;
 
@@ -396,13 +410,12 @@ namespace HistorianDataWalker
         #region [ Static ]
 
         // Static Constructor
-        static HistorianDataWalker()
+        static HistorianDataCompletenessReporter()
         {
             // Set default logging path
             Logger.FileWriter.SetPath(FilePath.GetAbsolutePath(""), VerboseLevel.Ultra);
         }
 
         #endregion
-
     }
 }

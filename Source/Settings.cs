@@ -28,7 +28,7 @@ using ExpressionEvaluator;
 using GSF.ComponentModel;
 using GSF.Configuration;
 
-namespace HistorianDataWalker
+namespace HistorianDataCompletenessReporter
 {
     /// <summary>
     /// Defines settings for the Historian Data Walker application.
@@ -138,6 +138,14 @@ namespace HistorianDataWalker
         public DateTime EndTime { get; set; }
 
         /// <summary>
+        /// Gets or sets whether to use UTC time or local time for time range.
+        /// </summary>
+        [TypeConvertedValueExpression("Form.checkBoxUseUTCTime.Checked")]
+        [Description("Select whether to use UTC time or local time.")]
+        [UserScopedSetting]
+        public bool UseUTCTime { get; set; }
+
+        /// <summary>
         /// Gets or sets selected point list or filter expression for historian read.
         /// </summary>
         [TypeConvertedValueExpression("Form.textBoxPointList.Text")]
@@ -160,5 +168,21 @@ namespace HistorianDataWalker
         [Description("Flag that determines if logging should be enabled.")]
         [UserScopedSetting]
         public bool EnableLogging { get; set; }
+
+        /// <summary>
+        /// Gets or sets sample count window.
+        /// </summary>
+        [TypeConvertedValueExpression("Form.maskedTextBoxSampleCountWindow.Text")]
+        [Description("Window size, in seconds, over which samples are counted.")]
+        [UserScopedSetting]
+        public int SampleCountWindow { get; set; }
+
+        /// <summary>
+        /// Gets or sets selected point list or filter expression for historian read.
+        /// </summary>
+        [TypeConvertedValueExpression("Form.textBoxDestination.Text")]
+        [Description("Path where the reports will be written.")]
+        [UserScopedSetting]
+        public string Destination { get; set; }
     }
 }

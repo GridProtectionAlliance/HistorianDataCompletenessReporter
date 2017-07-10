@@ -27,7 +27,7 @@ using System.Data;
 using System.Windows.Forms;
 using GSF.TimeSeries;
 
-namespace HistorianDataWalker.HistorianAPI.Metadata
+namespace HistorianDataCompletenessReporter.HistorianAPI.Metadata
 {
     public class MetadataRecord
     {

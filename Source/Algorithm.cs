@@ -2,15 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using GSF.Diagnostics;
-using HistorianDataWalker.HistorianAPI;
-using HistorianDataWalker.HistorianAPI.Metadata;
+using HistorianDataCompletenessReporter.HistorianAPI;
+using HistorianDataCompletenessReporter.HistorianAPI.Metadata;
 using System.Diagnostics;
 using System.IO;
 using GSF;
 using GSF.IO;
 using GSF.Units;
 
-namespace HistorianDataWalker
+namespace HistorianDataCompletenessReporter
 {
     /// <summary>
     /// Defines algorithm to be executed during historian read.
@@ -19,41 +19,31 @@ namespace HistorianDataWalker
     {
         #region [ Members ]
 
-        private class Imbalance
+        // Nested Types
+        private class SignalHandler
         {
-            public ulong Start;
-            public ulong Stop;
-            public double Total;
-            public long Count;
-
-            public double Range => (new Ticks((long)Stop) - new Ticks((long)Start)).ToSeconds();
-
-            public void Reset()
-            {
-                Start = 0UL;
-                Stop = 0UL;
-                Total = 0.0D;
-                Count = 0L;
-            }
+            public string Name;
+            public ulong PointID;
+            public int ExpectedPoints;
+            public int ReceivedPoints = 0;
+            public int DataErrors = 0;
+            public StreamWriter Stream;
         }
-
-        // Constants
-        private const int MinimumSustainedRange = 1;
-        private const double ImbalanceThreshold = 0.01D;
-        private const string OutputFile = "Output for {0}.txt";
 
         // Meta-data fields
         private List<MetadataRecord> m_metadata;
-        private readonly ulong[][] m_voltageMagnitudeIDs;
-        private readonly string[] m_voltageSetDescription;
+        private int m_expectedFrameRate;
+        private string m_destination;
 
         // Algorithm analytic fields
-        private readonly StreamWriter[] m_outputFiles;
-        private readonly StreamWriter m_allOutFile;
-        private readonly Imbalance[] m_imbalances;
+        private SignalHandler[] m_signalHandlers;
+        private TimeSpan m_windowSize;
+        private DateTime[] m_timeWindows;
+        private int m_currentTimeWindow;
+        private ulong[] m_expectedSignals;
+        bool m_useUTCTime;
 
         // Algorithm processing statistic fields
-        private long m_missingPointCount;
         private long m_processedDataBlocks;
 
         private bool m_disposed;
@@ -62,89 +52,18 @@ namespace HistorianDataWalker
 
         #region [ Constructors ]
 
-        public Algorithm()
+        public Algorithm(DateTime startTime, DateTime endTime, TimeSpan windowSize, ulong[] expectedSignals, List<MetadataRecord> metadata, string destination, int expectedFrameRate, bool useUTCTime = false)
         {
-            m_voltageMagnitudeIDs = new[]
-            {
-                new ulong[] { 5070, 5003 },
-                new ulong[] { 2108, 2110 },
-                new ulong[] { 2159, 2161 },
-                new ulong[] { 2077, 2079 },
-                new ulong[] { 2190, 2192 },
-                new ulong[] { 5231, 5243 },
-                new ulong[] { 5209, 5256 },
-                new ulong[] { 4735, 4737 },
-                new ulong[] { 4766, 4768 },
-                //new ulong[] { 6026, 6009 },
-                //new ulong[] { 5990, 5960 },
-                //new ulong[] { 6025, 5964 },
-                //new ulong[] { 5989, 5957 },
-                //new ulong[] { 2633, 2635 },
-                //new ulong[] { 2664, 2666 },
-                //new ulong[] { 3181, 3183 },
-                //new ulong[] { 2726, 2728 },
-                new ulong[] { 4469, 4471 },
-                new ulong[] { 1705, 1707 },
-                new ulong[] { 2799, 2801 },
-                new ulong[] { 2881, 2883 },
-                new ulong[] { 2830, 2832 },
-                new ulong[] { 2912, 2914 },
-                new ulong[] { 1784, 1786 },
-                new ulong[] { 1816, 1818 },
-                new ulong[] { 1848, 1850 },
-                new ulong[] { 1736, 1738 }
-            };
-
-            m_voltageSetDescription = new[]
-            {
-                "Jof-Davidson",
-                "Jscc-Ctg1",
-                "Jscc-Ctg2",
-                "Jscc-Ctg3",
-                "Jscc-Stg",
-                "Pacc-Ct1",
-                "Pacc-Ct2",
-                "Pacc-Ct3",
-                "Pacc-St1",
-                //"RCS1-Mocc-1",
-                //"RCS1-Mocc-2",
-                //"RCS1-Unit-3",
-                //"RCS1-Unit-4",
-                //"RCS2-Bank-5",
-                //"RCS2-Mocc-3",
-                //"RCS2-Unit-1",
-                //"RCS2-Unit-2",
-                "Riverbend Solar",
-                "Sqn 500 Line",
-                "Sqn-Gen1",
-                "Sqn-Gen2",
-                "Sqnxfmr5h",
-                "Sqnxfmr5l",
-                "Unit 1 BFN1",
-                "Unit 2 BFN2",
-                "Unit 3 BFN3",
-                "Wbn 500 Line"
-            };
-
-            Debug.Assert(m_voltageMagnitudeIDs.Length == m_voltageSetDescription.Length);
-
-            m_imbalances = new Imbalance[m_voltageMagnitudeIDs.Length];
-
-            for (int i = 0; i < m_imbalances.Length; i++)
-                m_imbalances[i] = new Imbalance();
-
-            m_outputFiles = new StreamWriter[m_voltageMagnitudeIDs.Length];
-
-            for (int i = 0; i < m_outputFiles.Length; i++)
-            {
-                m_outputFiles[i] = File.CreateText(FilePath.GetAbsolutePath(string.Format(OutputFile, m_voltageSetDescription[i])));
-                m_outputFiles[i].AutoFlush = true;
-            }
-
-            m_allOutFile = File.CreateText(FilePath.GetAbsolutePath("AllImbalances.txt"));
-            m_allOutFile.AutoFlush = true;
-
-            m_missingPointCount = 0;
+            StartTime = startTime;
+            EndTime = endTime;
+            WindowSize = windowSize;
+            ExpectedSignals = expectedSignals;
+            ExpectedFrameRate = expectedFrameRate;
+            Metadata = metadata;
+            Destination = destination;
+            UseUTCTime = useUTCTime;
+            CalculateTimeWindows();
+            InitializeSignalHandlers();
         }
 
         #endregion
@@ -179,7 +98,39 @@ namespace HistorianDataWalker
         /// <summary>
         /// Gets or sets total time-range, in seconds, for data read.
         /// </summary>
-        public double TimeRange { get; set; }
+        public double TimeRange { get; }
+
+        /// <summary>
+        /// Gets or sets the time window size
+        /// </summary>
+        public TimeSpan WindowSize
+        {
+            get
+            {
+                return m_windowSize;
+            }
+            set
+            {
+                m_windowSize = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the expected signal ids
+        /// </summary>
+        public ulong[] ExpectedSignals
+        {
+            get
+            {
+                return m_expectedSignals;
+            }
+
+            set
+            {
+                m_expectedSignals = value;
+                InitializeSignalHandlers();
+            }
+        }
 
         /// <summary>
         /// Gets or sets received historian meta-data.
@@ -194,6 +145,44 @@ namespace HistorianDataWalker
             {
                 // Cache meta-data in case algorithm needs it
                 m_metadata = value;
+            }
+        }
+
+        public int ExpectedFrameRate
+        {
+            get
+            {
+                return m_expectedFrameRate;
+            }
+            set
+            {
+                m_expectedFrameRate = value;
+            }
+        }
+
+        public string Destination
+        {
+            get
+            {
+                return m_destination;
+            }
+            set
+            {
+                m_destination = value;
+                if (m_destination == null || m_destination == "")
+                    m_destination = FilePath.GetAbsolutePath("");
+            }
+        }
+
+        public bool UseUTCTime
+        {
+            get
+            {
+                return m_useUTCTime;
+            }
+            set
+            {
+                m_useUTCTime = value;
             }
         }
 
@@ -222,10 +211,9 @@ namespace HistorianDataWalker
                 {
                     if (disposing)
                     {
-                        foreach (StreamWriter outputFile in m_outputFiles)
-                            outputFile?.Dispose();
+                        foreach (SignalHandler signalHandler in m_signalHandlers)
+                            signalHandler.Stream?.Dispose();
 
-                        m_allOutFile?.Dispose();
                     }
                 }
                 finally
@@ -236,40 +224,94 @@ namespace HistorianDataWalker
         }
 
         /// <summary>
-        /// Notifies algorithm that it should prepare to receive data.
+        /// Calculates the start and end times of each time window based on the StartTime, EndTime, and WindowSize properties 
+        /// and populates the m_timeWindows field.
         /// </summary>
-        public void Initialize()
+        private void CalculateTimeWindows()
         {
-            for (int i = 0; i < m_outputFiles.Length; i++)
+            TimeSpan timeRangeSize = EndTime - StartTime;
+            m_timeWindows = new DateTime[(timeRangeSize.Ticks + WindowSize.Ticks - 1) / WindowSize.Ticks + 1]; // Extra WindowSize.Ticks - 1 in numerator adds one to quotient if there is a remainder
+            if (m_timeWindows.Length > 2)
             {
-                m_outputFiles[i].WriteLine($"Sustained imbalances for \"{m_voltageSetDescription[i]}\" exceeding {ImbalanceThreshold:0.00%} for at least {MinimumSustainedRange} seconds.");
-                m_outputFiles[i].WriteLine($"Summary covers data from {StartTime:yyyy-MM-dd HH:mm:ss.fff} to {EndTime:yyyy-MM-dd HH:mm:ss.fff} spanning {Time.ToElapsedTimeString(TimeRange, 3).ToLowerInvariant()}{Environment.NewLine}");
+                m_timeWindows[0] = StartTime;
+                m_timeWindows[m_timeWindows.Length - 1] = EndTime;
+                m_currentTimeWindow = 0; // m_current time window should go from 0 to m_timeWindows.Length - 2
+                for (int i = 1; i < m_timeWindows.Length - 1; i++)
+                {
+                    m_timeWindows[i] = StartTime + TimeSpan.FromTicks(WindowSize.Ticks * i);
+                }
             }
-
-            m_allOutFile.WriteLine($"This file captures any instanataneous imbalances exceeding {ImbalanceThreshold:0.00%}");
-            m_allOutFile.WriteLine($"Details cover data from {StartTime:yyyy-MM-dd HH:mm:ss.fff} to {EndTime:yyyy-MM-dd HH:mm:ss.fff} spanning {Time.ToElapsedTimeString(TimeRange, 3).ToLowerInvariant()}{Environment.NewLine}");
+            
+            else
+            {
+                throw new Exception("Invalid combination start time, end time, & time window size");
+            }
         }
 
-        private DataPoint[] GetDataPoints(DataPoint[] dataBlock, ulong[] voltageMagnitudeIDs)
+        /// <summary>
+        /// For each ulong signalID in ExpectedSignals, this function finds the name of the signal in the MetaData
+        /// list and uses it to to populate it's SignalHandler Name and Stream fields. Also populates the SignalHandler's
+        /// other fields.
+        /// </summary>
+        private void InitializeSignalHandlers()
         {
-            DataPoint[] dataPoints = new DataPoint[voltageMagnitudeIDs.Length];
+            if (Metadata != null)
+            {
+                m_signalHandlers = new SignalHandler[ExpectedSignals.Length];
 
-            for (int i = 0; i < voltageMagnitudeIDs.Length; i++)
-                dataPoints[i] = dataBlock.FirstOrDefault(point => point.PointID == voltageMagnitudeIDs[i]);
-
-            return dataPoints;
+                int expectedPoints = CalculateExpectedPoints();
+                string timeZone = UseUTCTime ? "(UTC)" : "(Local Time)";
+                for(int i = 0; i < ExpectedSignals.Length; i++)
+                {
+                    string signalName = Metadata.Find(record => record.PointID == ExpectedSignals[i]).PointTag.Replace(':', '_');
+                    m_signalHandlers[i] = new SignalHandler
+                    {
+                        PointID = ExpectedSignals[i],
+                        Name = signalName,
+                        Stream = File.CreateText(Path.Combine(Destination, signalName + ".csv")),
+                        ExpectedPoints = expectedPoints
+                    };
+                    m_signalHandlers[i].Stream.WriteLine($"{m_signalHandlers[i].Name} TimeStamp {timeZone}, Expected Samples, Sample Count, Data Error Count");
+                }
+            }
         }
 
-        private void SummarizeImbalance(int index, Imbalance imbalance)
+        /// <summary>
+        /// Calculates how many points should be in a TimeWindow based on it's start time, end time and ExpectedFrameRate
+        /// </summary>
+        /// <returns></returns>
+        private int CalculateExpectedPoints()
         {
-            double range = imbalance.Range;
+            return (int)((m_timeWindows[m_currentTimeWindow + 1] - m_timeWindows[m_currentTimeWindow]).TotalSeconds * ExpectedFrameRate);
+        }
 
-            if (range < MinimumSustainedRange)
-                return;
+        /// <summary>
+        /// Increments m_currentTimeWindow, writes each StreamHandler's data to it's StreamWriter and resets the StreamHandler's counts
+        /// </summary>
+        private void WriteData()
+        {
+            m_currentTimeWindow++;
+            string timeStamp = FixTimeStamp(m_timeWindows[m_currentTimeWindow - 1]);
+            for (int i = 0; i < m_signalHandlers.Length; i++)
+            {
+                m_signalHandlers[i].Stream.WriteLine($"{timeStamp}, {m_signalHandlers[i].ExpectedPoints},  {m_signalHandlers[i].ReceivedPoints}, {m_signalHandlers[i].DataErrors}");
+                m_signalHandlers[i].ExpectedPoints = CalculateExpectedPoints();
+                m_signalHandlers[i].ReceivedPoints = 0;
+                m_signalHandlers[i].DataErrors = 0;
+            }
+        }
 
-            string message = $"{new DateTime((long)imbalance.Start):yyyy-MM-dd HH:mm:ss.fff} for {Time.ToElapsedTimeString(range, 3).ToLowerInvariant()} - average imbalance: {imbalance.Total / imbalance.Count:0.0000%}";
-            m_outputFiles[index].WriteLine(message);
-            ShowMessage($"{message}{Environment.NewLine}");
+        /// <summary>
+        /// Changes timestamp into what MS Excel will parse as a string instead of a DateTime
+        /// </summary>
+        /// <param name="timeStamp"></param>
+        /// <returns></returns>
+        private string FixTimeStamp(DateTime timeStamp)
+        {
+            if (!UseUTCTime)
+                timeStamp = timeStamp.ToLocalTime();
+
+            return "=\"" + timeStamp.ToString() + "\"";
         }
 
         /// <summary>
@@ -278,9 +320,7 @@ namespace HistorianDataWalker
         /// <param name="pointIDList">Point ID list.</param>
         public void AugmentPointIDList(List<ulong> pointIDList)
         {
-            // In this algorithm, point ID list is fixed so we ignore user input
-            pointIDList.Clear();
-            pointIDList.AddRange(m_voltageMagnitudeIDs.SelectMany(ids => ids));
+            // Not used in this algorithm
         }
 
         /// <summary>
@@ -290,47 +330,25 @@ namespace HistorianDataWalker
         /// <param name="dataBlock">Points values read at current timestamp.</param>
         public void Execute(DateTime timestamp, DataPoint[] dataBlock)
         {
-            for (int i = 0; i < m_voltageMagnitudeIDs.Length; i++)
+            while (timestamp > m_timeWindows[m_currentTimeWindow + 1])
+                WriteData();
+
+            foreach (DataPoint point in dataBlock)
             {
-                ulong[] voltageMagnitudeIDs = m_voltageMagnitudeIDs[i];
-                DataPoint[] dataPoints = GetDataPoints(dataBlock, voltageMagnitudeIDs);
-
-                if (dataPoints.Length == 2 && (object)dataPoints[0] != null && (object)dataPoints[1] != null)
-                {
-                    double imbalanceRatio = dataPoints[0].ValueAsSingle / dataPoints[1].ValueAsSingle;
-                    Imbalance imbalance = m_imbalances[i];
-
-                    if (!double.IsInfinity(imbalanceRatio) && imbalanceRatio > ImbalanceThreshold)
-                    {
-                        if (imbalance.Start == 0UL)
-                        {
-                            imbalance.Start = dataPoints[0].Timestamp;
-                            ShowMessage($"*** Imbalance detected for \"{m_voltageSetDescription[i]}\" at {new DateTime((long)imbalance.Start):yyyy-MM-dd HH:mm:ss.ffff} ***{Environment.NewLine}");
-                        }
-
-                        imbalance.Total += imbalanceRatio;
-                        imbalance.Count++;
-
-                        m_allOutFile.WriteLine($"{new DateTime((long)imbalance.Start):yyyy-MM-dd HH:mm:ss.fff} - imbalance for \"{m_voltageSetDescription[i]}\": {imbalanceRatio:0.0000%}");
-                    }
-                    else
-                    {
-                        if (imbalance.Start != 0UL)
-                        {
-                            imbalance.Stop = dataPoints[0].Timestamp;
-                            SummarizeImbalance(i, imbalance);
-                            imbalance.Reset();
-                        }
-                    }
-                }
-                else
-                {
-                    m_missingPointCount++;
-                }
+                int index = Array.IndexOf(m_signalHandlers, m_signalHandlers.First(signalHandler => signalHandler.PointID == point.PointID));
+                m_signalHandlers[index].ReceivedPoints++;
+                if (Single.IsInfinity(point.ValueAsSingle))
+                    m_signalHandlers[index].DataErrors++;
             }
+        }
 
-            if (++m_processedDataBlocks % MessageInterval == 0)
-                ShowMessage($"Analyzed {m_processedDataBlocks:N0} timestamps so far with {m_missingPointCount:N0} missing points.{Environment.NewLine}");
+        public void FinalWrite()
+        {
+            string timeStamp = FixTimeStamp(m_timeWindows[m_currentTimeWindow]);
+            for (int i = 0; i < m_signalHandlers.Length; i++)
+            {
+                m_signalHandlers[i].Stream.WriteLine($"{timeStamp}, {m_signalHandlers[i].ExpectedPoints},  {m_signalHandlers[i].ReceivedPoints}, {m_signalHandlers[i].DataErrors}");
+            }
         }
 
         #endregion

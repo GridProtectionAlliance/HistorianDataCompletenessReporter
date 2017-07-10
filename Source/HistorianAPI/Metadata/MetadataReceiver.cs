@@ -27,7 +27,7 @@ using System.Threading;
 using GSF.TimeSeries.Transport;
 using ServerCommand = GSF.TimeSeries.Transport.ServerCommand;
 
-namespace HistorianDataWalker.HistorianAPI.Metadata
+namespace HistorianDataCompletenessReporter.HistorianAPI.Metadata
 {
     /// <summary>
     /// Retrieves current meta-data from openHistorian using GEP

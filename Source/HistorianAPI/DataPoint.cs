@@ -25,7 +25,7 @@ using System;
 using System.Runtime.CompilerServices;
 using GSF;
 
-namespace HistorianDataWalker.HistorianAPI
+namespace HistorianDataCompletenessReporter.HistorianAPI
 {
     public class DataPoint
     {

@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("HistorianDataWalker")]
-[assembly: AssemblyDescription("Compares two openHistorian Archives for Differences")]
+[assembly: AssemblyTitle("HistorianDataCompletenessReporter")]
+[assembly: AssemblyDescription("Generates .csv data completeness reports")]
 [assembly: AssemblyCompany("Grid Protection Alliance")]
 [assembly: AssemblyProduct("openHistorian")]
 [assembly: AssemblyCopyright("Copyright © GPA, 2016.  All Rights Reserved.")]

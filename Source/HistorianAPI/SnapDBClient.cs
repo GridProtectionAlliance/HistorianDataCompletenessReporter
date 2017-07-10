@@ -30,7 +30,7 @@ using GSF.Snap.Services.Reader;
 using openHistorian.Net;
 using openHistorian.Snap;
 
-namespace HistorianDataWalker.HistorianAPI
+namespace HistorianDataCompletenessReporter.HistorianAPI
 {
     public sealed class SnapDBClient : IDisposable
     {
