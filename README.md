@@ -16,4 +16,4 @@ Runs through a given set of signals over a given time period and creates data co
 * The framerate estimate and sample count window determine the number of expected data points per row.
 * Select a destination folder. If this field is left blank, .csv file will be saved in the same directory as the HistorianDataCompletenessReporter.
 * Click Go.
-* If there are no errors, the .csv file will be created in the destination folder.
+* If there are no errors, a .csv file will be created in the destination folder for each channel.
